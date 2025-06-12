@@ -28,7 +28,7 @@ Ultra-fast Text-to-Speech tray application using Piper TTS with advanced feature
 ### 🎵 **Advanced Audio Features**
 - **High-quality neural TTS** - Natural intonation with multiple voice options
 - **Optimized speech speed** - 10 speed levels with proper length_scale mapping (1.5 to 0.5)
-- **Voice selection** - Choose between Jane Medium and Amy Low voices
+- **Voice selection** - Choose between voices
 - **Voice presets** - 4 customizable presets with speed 5 default for balanced performance
 - **Professional audio navigation**:
   - Skip forward/back with configurable intervals (5-60 seconds, default 10s)
@@ -160,7 +160,7 @@ The application automatically locates required files and supports comprehensive 
 3. **Visual feedback** - Animated tray icon provides smooth visual indication during speech
 4. **Control playback** via the rich tray icon context menu:
    - Adjust speed (1-10) with optimized length_scale mapping
-   - Switch voices (Jane Medium/Amy Low) for variety
+   - Switch voices for variety
    - Use voice presets for quick configuration changes
    - Pause/Resume speech at exact position for interruption control
    - Skip forward/back (configurable 5-60 second intervals) for navigation
