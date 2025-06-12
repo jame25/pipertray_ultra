@@ -2,7 +2,7 @@
 
 # PiperTray Ultra
 
-Ultra-fast Text-to-Speech tray application using Piper TTS with advanced features, pronunciation dictionaries, animated visual feedback, and smart clipboard management.
+Ultra-fast Text-to-Speech tray application using [Piper TTS](https://github.com/rhasspy/piper) with advanced features, pronunciation dictionaries, animated visual feedback, and smart clipboard management.
 
 ## Features
 
