@@ -135,11 +135,10 @@ The application uses a heavily modified Piper TTS executable with enhanced daemo
 The application automatically locates required files and supports comprehensive customization:
 
 ### File Locations
-- **Piper executable**: `piper-src/build/Release/piper.exe` (custom daemon-enabled build)
+- **Piper executable**: `piper-executable/piper.exe` (custom daemon-enabled build)
 - **Voice models**: `piper-executable/`
 - **eSpeak data**: `piper-executable/espeak-ng-data/`
 - **Settings**: `settings.json` in application directory
-- **Custom icon**: `icon.ico` in application directory (optional)
 
 ### Settings Configuration
 - **Appearance**: Menu item visibility (7 customizable options), animated tray icon
