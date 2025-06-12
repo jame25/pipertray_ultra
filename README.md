@@ -142,7 +142,7 @@ The application automatically locates required files and supports comprehensive 
 - **Custom icon**: `icon.ico` in application directory (optional)
 
 ### Settings Configuration
-- **Appearance**: Menu item visibility (7 customizable options), animated tray icon (enabled by default)
+- **Appearance**: Menu item visibility (7 customizable options), animated tray icon
 - **Audio**: Speed (1-10 with optimized length_scale), voice selection, auto-read clipboard, skip intervals
 - **Dictionaries**: Ignored words, text replacements with intuitive management interface
 - **Performance**: Phoneme cache size (default 10,000), intelligent chunking
