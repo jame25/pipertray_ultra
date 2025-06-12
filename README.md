@@ -40,7 +40,7 @@ Ultra-fast Text-to-Speech tray application using [Piper TTS](https://github.com/
 - **Cancellation support** - Stop speech playback instantly
 
 ### 🖥️ **Rich System Tray Interface**
-- **Lightweight system tray app** - Runs quietly in the background with custom icon support
+- **Lightweight system tray app** - Runs quietly in the background
 - **Animated visual feedback** - Smooth three vertical lines animation during speech (enabled by default)
 - **Smart preset menu** - Presets menu only appears when presets are actually enabled
 - **Customizable context menu**:
