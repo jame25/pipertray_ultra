@@ -45,6 +45,10 @@ namespace PiperTray
             InitializeAnimation();
             InitializeComponents();
             InitializeHotkeys();
+            
+            // Check if voice models are available
+            CheckVoiceModelsAvailability();
+            
             StartServices();
             
             // Set initial menu selections and states
@@ -1041,6 +1045,44 @@ namespace PiperTray
             UpdatePresetMenuSelection();
             UpdateMonitoringMenuText();
             UpdatePauseMenuText();
+        }
+
+        private void CheckVoiceModelsAvailability()
+        {
+            try
+            {
+                var voiceModelsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "piper-executable");
+                
+                // Check if piper-executable directory exists
+                if (!Directory.Exists(voiceModelsPath))
+                {
+                    MessageBox.Show("Please add voice models to the 'piper-executable' directory.", 
+                        "No Voice Models Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // Check for actual .onnx model files
+                var onnxFiles = Directory.GetFiles(voiceModelsPath, "*.onnx", SearchOption.TopDirectoryOnly);
+                var actualVoiceModels = onnxFiles.Where(file => 
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(file).ToLower();
+                    // Exclude non-voice models
+                    return !fileName.Contains("silero_vad") && 
+                           !fileName.Contains("test_voice") && 
+                           !fileName.Contains("_vad") && 
+                           (fileName.Contains("-") || fileName.Contains("_"));
+                }).ToArray();
+                
+                if (actualVoiceModels.Length == 0)
+                {
+                    MessageBox.Show("Please add voice models to the 'piper-executable' directory.", 
+                        "No Voice Models Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error checking voice models availability", ex);
+            }
         }
 
         private void OnExit(object? sender, EventArgs e)
