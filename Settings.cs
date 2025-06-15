@@ -15,8 +15,8 @@ namespace PiperTray
         public bool ShowStopSpeechMenuItem { get; set; } = true;
         public bool ShowPauseResumeMenuItem { get; set; } = false;
         public bool ShowSkipMenuItem { get; set; } = false;
-        public bool ShowSpeedMenuItem { get; set; } = true;
-        public bool ShowVoiceMenuItem { get; set; } = true;
+        public bool ShowSpeedMenuItem { get; set; } = false;
+        public bool ShowVoiceMenuItem { get; set; } = false;
         public bool ShowPresetsMenuItem { get; set; } = true;
         public bool ShowExportToWavMenuItem { get; set; } = false;
 
@@ -59,6 +59,9 @@ namespace PiperTray
         // Dictionary settings
         public string[] IgnoredWords { get; set; } = new string[0];
         public Dictionary<string, string> Replacements { get; set; } = new Dictionary<string, string>();
+
+        // Language switching settings
+        public LanguageSwitchingSettings LanguageSwitching { get; set; } = new LanguageSwitchingSettings();
 
         // Static methods for loading/saving
         private static readonly string SettingsPath = Path.Combine(
@@ -233,5 +236,33 @@ namespace PiperTray
                 }
             };
         }
+    }
+
+    public class LanguageSwitchingSettings
+    {
+        public LanguageVoicePair[] LanguageVoicePairs { get; set; } = new LanguageVoicePair[6];
+
+        public LanguageSwitchingSettings()
+        {
+            // Initialize with default pairs
+            var defaultModel = VoiceModelDetector.GetDefaultModel();
+            for (int i = 0; i < 6; i++)
+            {
+                LanguageVoicePairs[i] = new LanguageVoicePair
+                {
+                    Language = "",
+                    VoiceModel = defaultModel,
+                    Enabled = false
+                };
+            }
+        }
+    }
+
+    public class LanguageVoicePair
+    {
+        public string Language { get; set; } = "";
+        public string VoiceModel { get; set; } = "";
+        public int Speed { get; set; } = 5;
+        public bool Enabled { get; set; } = false;
     }
 }
