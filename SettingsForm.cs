@@ -12,6 +12,7 @@ namespace PiperTray
         private TabPage appearanceTab;
         private TabPage hotkeysTab;
         private TabPage presetsTab;
+        private TabPage languageSwitchingTab;
         private TabPage dictionariesTab;
         private TabPage advancedTab;
         private Button okButton;
@@ -47,6 +48,12 @@ namespace PiperTray
         private ComboBox[] presetSpeedCombos = new ComboBox[4];
         private Button[] presetNumberButtons = new Button[4];
         private bool[] presetEnabled = new bool[4]; // Track which presets are enabled
+
+        // Language switching controls
+        private ComboBox[] languageComboBoxes = new ComboBox[6];
+        private ComboBox[] languageVoiceComboBoxes = new ComboBox[6];
+        private ComboBox[] languageSpeedComboBoxes = new ComboBox[6];
+        private CheckBox[] languageEnabledCheckBoxes = new CheckBox[6];
 
         // Dictionary controls
         private ListBox ignoredWordsListBox;
@@ -122,6 +129,10 @@ namespace PiperTray
             presetsTab = new TabPage("Presets");
             SetupPresetsTab();
 
+            // Language Switching Tab
+            languageSwitchingTab = new TabPage("Language Switching");
+            SetupLanguageSwitchingTab();
+
             // Dictionaries Tab
             dictionariesTab = new TabPage("Dictionaries");
             SetupDictionariesTab();
@@ -133,6 +144,7 @@ namespace PiperTray
             tabControl.TabPages.Add(appearanceTab);
             tabControl.TabPages.Add(hotkeysTab);
             tabControl.TabPages.Add(presetsTab);
+            tabControl.TabPages.Add(languageSwitchingTab);
             tabControl.TabPages.Add(dictionariesTab);
             tabControl.TabPages.Add(advancedTab);
 
@@ -192,7 +204,7 @@ namespace PiperTray
                 Text = "Speed",
                 Location = new Point(150, 25),
                 Size = new Size(80, 20),
-                Checked = true
+                Checked = false
             };
 
             showVoiceCheck = new CheckBox
@@ -200,7 +212,7 @@ namespace PiperTray
                 Text = "Voice",
                 Location = new Point(150, 50),
                 Size = new Size(80, 20),
-                Checked = true
+                Checked = false
             };
 
             showPresetsCheck = new CheckBox
@@ -658,6 +670,144 @@ namespace PiperTray
             presetsTab.Controls.Add(panel);
         }
 
+        private void SetupLanguageSwitchingTab()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            // Language options as specified by user
+            var languageOptions = new[]
+            {
+                "ar", "ca", "cs", "cy", "da", "de", "el", "en", "es", "fa", "fi", "fr", 
+                "hu", "is", "it", "ka", "kk", "lb", "lv", "ne", "nl", "no", "pl", "pt", 
+                "ro", "ru", "sk", "sl", "sr", "sv", "sw", "tr", "uk", "vi", "zh"
+            };
+
+            // Header labels
+            var languageHeader = new Label
+            {
+                Text = "Language",
+                Location = new Point(10, 15),
+                Size = new Size(80, 20)
+            };
+
+            var voiceHeader = new Label
+            {
+                Text = "Voice Model",
+                Location = new Point(100, 15),
+                Size = new Size(150, 20)
+            };
+
+            var speedHeader = new Label
+            {
+                Text = "Speed",
+                Location = new Point(260, 15),
+                Size = new Size(50, 20)
+            };
+
+            var enabledHeader = new Label
+            {
+                Text = "Enabled",
+                Location = new Point(320, 15),
+                Size = new Size(60, 20)
+            };
+
+            panel.Controls.AddRange(new Control[] { languageHeader, voiceHeader, speedHeader, enabledHeader });
+
+            // Create 6 rows of language/voice pairs
+            for (int i = 0; i < 6; i++)
+            {
+                int yPos = 45 + (i * 35);
+
+                // Language combobox
+                languageComboBoxes[i] = new ComboBox
+                {
+                    Location = new Point(10, yPos),
+                    Size = new Size(80, 23),
+                    DropDownStyle = ComboBoxStyle.DropDownList
+                };
+                languageComboBoxes[i].Items.Add(""); // Empty option
+                languageComboBoxes[i].Items.AddRange(languageOptions);
+                languageComboBoxes[i].SelectedIndex = 0; // Select empty by default
+
+                // Voice model combobox
+                languageVoiceComboBoxes[i] = new ComboBox
+                {
+                    Location = new Point(100, yPos),
+                    Size = new Size(150, 23),
+                    DropDownStyle = ComboBoxStyle.DropDownList
+                };
+
+                // Populate voice models
+                var availableModels = VoiceModelDetector.GetAvailableVoiceModels();
+                foreach (var model in availableModels)
+                {
+                    var displayName = VoiceModelDetector.GetDisplayName(model);
+                    languageVoiceComboBoxes[i].Items.Add(displayName);
+                }
+                if (languageVoiceComboBoxes[i].Items.Count > 0)
+                {
+                    languageVoiceComboBoxes[i].SelectedIndex = 0;
+                }
+
+                // Speed combobox
+                languageSpeedComboBoxes[i] = new ComboBox
+                {
+                    Location = new Point(260, yPos),
+                    Size = new Size(50, 23),
+                    DropDownStyle = ComboBoxStyle.DropDownList
+                };
+                languageSpeedComboBoxes[i].Items.AddRange(new string[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" });
+                languageSpeedComboBoxes[i].SelectedIndex = 4; // Default to speed 5
+
+                // Enabled checkbox
+                languageEnabledCheckBoxes[i] = new CheckBox
+                {
+                    Location = new Point(330, yPos + 3),
+                    Size = new Size(15, 15)
+                };
+                languageEnabledCheckBoxes[i].CheckedChanged += LanguageEnabled_CheckedChanged;
+
+                panel.Controls.AddRange(new Control[] 
+                { 
+                    languageComboBoxes[i], 
+                    languageVoiceComboBoxes[i], 
+                    languageSpeedComboBoxes[i],
+                    languageEnabledCheckBoxes[i] 
+                });
+            }
+
+            languageSwitchingTab.Controls.Add(panel);
+        }
+
+        private void LanguageEnabled_CheckedChanged(object? sender, EventArgs e)
+        {
+            // Update visual state when enabled/disabled
+            for (int i = 0; i < 6; i++)
+            {
+                bool enabled = languageEnabledCheckBoxes[i].Checked;
+                languageComboBoxes[i].Enabled = enabled;
+                languageVoiceComboBoxes[i].Enabled = enabled;
+                languageSpeedComboBoxes[i].Enabled = enabled;
+                
+                if (enabled)
+                {
+                    languageComboBoxes[i].BackColor = SystemColors.Window;
+                    languageVoiceComboBoxes[i].BackColor = SystemColors.Window;
+                    languageSpeedComboBoxes[i].BackColor = SystemColors.Window;
+                }
+                else
+                {
+                    languageComboBoxes[i].BackColor = SystemColors.Control;
+                    languageVoiceComboBoxes[i].BackColor = SystemColors.Control;
+                    languageSpeedComboBoxes[i].BackColor = SystemColors.Control;
+                }
+            }
+        }
+
         private void SetupAdvancedTab()
         {
             var panel = new Panel
@@ -964,6 +1114,9 @@ namespace PiperTray
 
             // Load dictionary data
             LoadDictionaryData();
+
+            // Load language switching data
+            LoadLanguageSwitchingData();
 
             // Update row states based on checkboxes
             UpdateHotkeyRowStates();
@@ -1413,10 +1566,79 @@ namespace PiperTray
             }
         }
 
+        private void LoadLanguageSwitchingData()
+        {
+            for (int i = 0; i < 6 && i < settings.LanguageSwitching.LanguageVoicePairs.Length; i++)
+            {
+                var pair = settings.LanguageSwitching.LanguageVoicePairs[i];
+                
+                // Set language selection
+                if (!string.IsNullOrEmpty(pair.Language))
+                {
+                    var languageIndex = languageComboBoxes[i].Items.Cast<string>().ToList().IndexOf(pair.Language);
+                    if (languageIndex >= 0)
+                    {
+                        languageComboBoxes[i].SelectedIndex = languageIndex;
+                    }
+                }
+                
+                // Set voice model selection
+                if (!string.IsNullOrEmpty(pair.VoiceModel))
+                {
+                    var voiceDisplayName = VoiceModelDetector.GetDisplayName(pair.VoiceModel);
+                    var voiceIndex = languageVoiceComboBoxes[i].Items.Cast<string>().ToList().IndexOf(voiceDisplayName);
+                    if (voiceIndex >= 0)
+                    {
+                        languageVoiceComboBoxes[i].SelectedIndex = voiceIndex;
+                    }
+                }
+                
+                // Set speed selection
+                var speedIndex = Math.Max(0, Math.Min(9, pair.Speed - 1));
+                languageSpeedComboBoxes[i].SelectedIndex = speedIndex;
+                
+                // Set enabled state
+                languageEnabledCheckBoxes[i].Checked = pair.Enabled;
+            }
+            
+            // Trigger visual state update
+            LanguageEnabled_CheckedChanged(null, EventArgs.Empty);
+        }
+
+        private void SaveLanguageSwitchingData()
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                var pair = settings.LanguageSwitching.LanguageVoicePairs[i];
+                
+                // Save language selection
+                pair.Language = languageComboBoxes[i].SelectedItem?.ToString() ?? "";
+                
+                // Save voice model selection - convert display name back to model name
+                if (languageVoiceComboBoxes[i].SelectedItem is string displayName)
+                {
+                    var availableModels = VoiceModelDetector.GetAvailableVoiceModels();
+                    var modelName = availableModels.FirstOrDefault(m => VoiceModelDetector.GetDisplayName(m) == displayName);
+                    pair.VoiceModel = modelName ?? "";
+                }
+                
+                // Save speed setting
+                if (languageSpeedComboBoxes[i].SelectedItem is string speedText &&
+                    int.TryParse(speedText, out int speed))
+                {
+                    pair.Speed = speed;
+                }
+                
+                // Save enabled state
+                pair.Enabled = languageEnabledCheckBoxes[i].Checked;
+            }
+        }
+
         private void ApplySettings()
         {
             SavePresetData(); // Save preset data before saving general settings
             SaveDictionaryData(); // Save dictionary data
+            SaveLanguageSwitchingData(); // Save language switching data
             SaveSettings();
             Logger.Info("Settings applied");
         }
