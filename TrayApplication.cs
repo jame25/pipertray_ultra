@@ -620,23 +620,8 @@ namespace PiperTray
                 currentSpeechCancellation = new CancellationTokenSource();
                 var cancellationToken = currentSpeechCancellation.Token;
                 
-                // Get voice model and speaker from current preset or default settings
-                var voiceModel = settings.DefaultVoice;
-                var speakerId = 0;
-                
-                // If we have an active preset, use its settings
-                if (settings.CurrentActivePreset >= 0 && settings.CurrentActivePreset < settings.VoicePresets.Length)
-                {
-                    var currentPreset = settings.VoicePresets[settings.CurrentActivePreset];
-                    if (currentPreset.Enabled)
-                    {
-                        voiceModel = currentPreset.Model;
-                        speakerId = currentPreset.SpeakerId;
-                    }
-                }
-                
-                // Use optimized TTS with dynamic voice model and speaker
-                var audioData = await ttsEngine.GenerateSpeechAsync(processedText, currentSpeed, voiceModel, speakerId);
+                // Check if language switching is enabled and process accordingly
+                var audioData = await GenerateSpeechWithLanguageSwitching(processedText, cancellationToken);
                 
                 // Check if cancelled before starting playback
                 if (cancellationToken.IsCancellationRequested)
@@ -850,23 +835,11 @@ namespace PiperTray
                         Logger.Info($"Exporting clipboard text to WAV: {saveDialog.FileName}");
                         // Generating audio for export - no balloon notification
                         
-                        // Get voice model and speaker from current preset or default settings
-                        var voiceModel = settings.DefaultVoice;
-                        var speakerId = 0;
+                        // Apply dictionary processing
+                        var processedText = ApplyDictionaryProcessing(clipboardText);
                         
-                        // If we have an active preset, use its settings
-                        if (settings.CurrentActivePreset >= 0 && settings.CurrentActivePreset < settings.VoicePresets.Length)
-                        {
-                            var currentPreset = settings.VoicePresets[settings.CurrentActivePreset];
-                            if (currentPreset.Enabled)
-                            {
-                                voiceModel = currentPreset.Model;
-                                speakerId = currentPreset.SpeakerId;
-                            }
-                        }
-                        
-                        // Generate audio using TTS engine
-                        var audioData = await ttsEngine.GenerateSpeechAsync(clipboardText, currentSpeed, voiceModel, speakerId);
+                        // Generate audio using language switching if configured
+                        var audioData = await GenerateSpeechWithLanguageSwitching(processedText, CancellationToken.None);
                         
                         // Write to WAV file
                         File.WriteAllBytes(saveDialog.FileName, audioData);
@@ -1085,6 +1058,375 @@ namespace PiperTray
             }
         }
 
+        private async Task<byte[]> GenerateSpeechWithLanguageSwitching(string text, CancellationToken cancellationToken)
+        {
+            // Check if any language switching pairs are enabled
+            var enabledPairs = settings.LanguageSwitching.LanguageVoicePairs
+                .Where(pair => pair.Enabled && !string.IsNullOrEmpty(pair.Language) && !string.IsNullOrEmpty(pair.VoiceModel))
+                .ToArray();
+
+            if (enabledPairs.Length == 0)
+            {
+                // No language switching configured, use default voice
+                return await GenerateWithDefaultVoice(text);
+            }
+
+            // Detect languages in the text and split into segments
+            var segments = DetectLanguageSegments(text, enabledPairs);
+            
+            Logger.Info($"Detected {segments.Count} language segments:");
+            for (int i = 0; i < segments.Count; i++)
+            {
+                Logger.Info($"  Segment {i + 1}: Language='{segments[i].DetectedLanguage}', Text='{segments[i].Text.Substring(0, Math.Min(50, segments[i].Text.Length))}...' (length: {segments[i].Text.Length})");
+            }
+            
+            if (segments.Count == 1 && string.IsNullOrEmpty(segments[0].DetectedLanguage))
+            {
+                // No specific language detected, use default voice
+                return await GenerateWithDefaultVoice(text);
+            }
+
+            // Generate audio for each segment with appropriate voice
+            var audioChunks = new List<byte[]>();
+            
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var segment = segments[i];
+                Logger.Info($"Processing segment {i + 1}/{segments.Count}: '{segment.Text.Substring(0, Math.Min(30, segment.Text.Length))}...'");
+                
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Logger.Info("Cancellation requested, stopping segment processing");
+                    break;
+                }
+
+                byte[] segmentAudio;
+                
+                if (!string.IsNullOrEmpty(segment.DetectedLanguage))
+                {
+                    // Find the voice model for this language
+                    var languagePair = enabledPairs.FirstOrDefault(p => p.Language == segment.DetectedLanguage);
+                    if (languagePair != null)
+                    {
+                        Logger.Info($"Using voice model '{languagePair.VoiceModel}' with speed {languagePair.Speed} for language '{segment.DetectedLanguage}'");
+                        segmentAudio = await ttsEngine.GenerateSpeechAsync(segment.Text, languagePair.Speed, languagePair.VoiceModel, 0);
+                    }
+                    else
+                    {
+                        Logger.Info($"Language '{segment.DetectedLanguage}' detected but no voice configured, using default");
+                        segmentAudio = await GenerateWithDefaultVoice(segment.Text);
+                    }
+                }
+                else
+                {
+                    Logger.Info("No language detected for this segment, using default voice");
+                    segmentAudio = await GenerateWithDefaultVoice(segment.Text);
+                }
+                
+                Logger.Info($"Generated {segmentAudio.Length} bytes of audio for segment {i + 1}");
+                audioChunks.Add(segmentAudio);
+            }
+
+            // Combine all audio chunks using proper WAV combination
+            return CombineWavFiles(audioChunks.ToArray());
+        }
+
+        private async Task<byte[]> GenerateWithDefaultVoice(string text)
+        {
+            // Get voice model and speaker from current preset or default settings
+            var voiceModel = settings.DefaultVoice;
+            var speakerId = 0;
+            
+            // If we have an active preset, use its settings
+            if (settings.CurrentActivePreset >= 0 && settings.CurrentActivePreset < settings.VoicePresets.Length)
+            {
+                var currentPreset = settings.VoicePresets[settings.CurrentActivePreset];
+                if (currentPreset.Enabled)
+                {
+                    voiceModel = currentPreset.Model;
+                    speakerId = currentPreset.SpeakerId;
+                }
+            }
+            
+            return await ttsEngine.GenerateSpeechAsync(text, currentSpeed, voiceModel, speakerId);
+        }
+
+        private List<LanguageSegment> DetectLanguageSegments(string text, LanguageVoicePair[] enabledPairs)
+        {
+            var segments = new List<LanguageSegment>();
+            var sentences = SplitIntoSentences(text);
+            
+            foreach (var sentence in sentences)
+            {
+                var detectedLanguage = DetectLanguage(sentence, enabledPairs);
+                segments.Add(new LanguageSegment { Text = sentence, DetectedLanguage = detectedLanguage });
+            }
+            
+            // Merge consecutive segments with the same language
+            var mergedSegments = new List<LanguageSegment>();
+            foreach (var segment in segments)
+            {
+                if (mergedSegments.Count > 0 && 
+                    mergedSegments.Last().DetectedLanguage == segment.DetectedLanguage)
+                {
+                    // Merge with previous segment
+                    mergedSegments.Last().Text += " " + segment.Text;
+                }
+                else
+                {
+                    mergedSegments.Add(segment);
+                }
+            }
+            
+            return mergedSegments;
+        }
+
+        private string[] SplitIntoSentences(string text)
+        {
+            // Enhanced sentence splitting that preserves language segments better
+            var sentences = new List<string>();
+            
+            // First, split by paragraph breaks which often indicate language changes
+            var paragraphs = text.Split(new[] { "\n\n", "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            
+            foreach (var paragraph in paragraphs)
+            {
+                // Then split each paragraph by sentence endings
+                var sentenceEnders = new[] { '.', '!', '?', '\n', '\r' };
+                var currentSentence = "";
+                
+                foreach (char c in paragraph)
+                {
+                    currentSentence += c;
+                    
+                    if (sentenceEnders.Contains(c))
+                    {
+                        var trimmed = currentSentence.Trim();
+                        if (!string.IsNullOrEmpty(trimmed) && trimmed.Length > 3) // Minimum sentence length
+                        {
+                            sentences.Add(trimmed);
+                        }
+                        currentSentence = "";
+                    }
+                }
+                
+                // Add remaining text as last sentence
+                var remaining = currentSentence.Trim();
+                if (!string.IsNullOrEmpty(remaining) && remaining.Length > 3)
+                {
+                    sentences.Add(remaining);
+                }
+            }
+            
+            // If no sentences were found, return the whole text as one sentence
+            if (sentences.Count == 0 && !string.IsNullOrWhiteSpace(text))
+            {
+                sentences.Add(text.Trim());
+            }
+            
+            return sentences.ToArray();
+        }
+
+        private string DetectLanguage(string text, LanguageVoicePair[] enabledPairs)
+        {
+            // Simple language detection based on character patterns
+            // This is a basic implementation - could be enhanced with more sophisticated algorithms
+            Logger.Info($"Detecting language for text: '{text.Substring(0, Math.Min(50, text.Length))}...'");
+            Logger.Info($"Enabled language pairs: {string.Join(", ", enabledPairs.Select(p => p.Language))}");
+            
+            // Try to find the best matching language by scoring each one
+            var languageScores = new Dictionary<string, double>();
+            
+            foreach (var pair in enabledPairs)
+            {
+                double score = GetLanguageScore(text, pair.Language);
+                languageScores[pair.Language] = score;
+                Logger.Info($"Language '{pair.Language}' score: {score:F2}");
+            }
+            
+            // Find the language with the highest score
+            var bestMatch = languageScores.Where(kvp => kvp.Value > 0).OrderByDescending(kvp => kvp.Value).FirstOrDefault();
+            
+            if (bestMatch.Key != null && bestMatch.Value > 0.05) // Minimum threshold (lowered for better detection)
+            {
+                Logger.Info($"Detected language: {bestMatch.Key} (score: {bestMatch.Value:F2})");
+                return bestMatch.Key;
+            }
+            
+            Logger.Info("No specific language detected, using default voice");
+            return ""; // No specific language detected
+        }
+
+        private double GetLanguageScore(string text, string language)
+        {
+            var lowerText = text.ToLower();
+            double score = 0.0;
+            
+            // Character-based scoring
+            double charScore = GetCharacterScore(text, language);
+            
+            // Word-based scoring
+            double wordScore = GetWordScore(lowerText, language);
+            
+            // Combine scores with weights
+            score = (charScore * 0.4) + (wordScore * 0.6);
+            
+            return score;
+        }
+
+        private double GetCharacterScore(string text, string language)
+        {
+            int totalChars = text.Length;
+            if (totalChars == 0) return 0.0;
+            
+            int matchingChars = 0;
+            
+            switch (language.ToLower())
+            {
+                case "ar": // Arabic
+                    matchingChars = text.Count(c => c >= '\u0600' && c <= '\u06FF');
+                    break;
+                case "zh": // Chinese
+                    matchingChars = text.Count(c => c >= '\u4E00' && c <= '\u9FFF');
+                    break;
+                case "ru": // Russian
+                    matchingChars = text.Count(c => c >= '\u0400' && c <= '\u04FF');
+                    break;
+                case "el": // Greek
+                    matchingChars = text.Count(c => c >= '\u0370' && c <= '\u03FF');
+                    break;
+                case "ka": // Georgian
+                    matchingChars = text.Count(c => c >= '\u10A0' && c <= '\u10FF');
+                    break;
+                case "sl": // Slovenian
+                    matchingChars = text.Count(c => "čćšžđ".Contains(char.ToLower(c)));
+                    break;
+                case "de": // German
+                    matchingChars = text.Count(c => "äöüß".Contains(char.ToLower(c)));
+                    break;
+                case "fr": // French
+                    matchingChars = text.Count(c => "àâäéèêëïîôöùûüÿç".Contains(char.ToLower(c)));
+                    break;
+                case "es": // Spanish
+                    matchingChars = text.Count(c => "ñü".Contains(char.ToLower(c)));
+                    break;
+                // Add more character-based detection for other languages as needed
+                default:
+                    return 0.0; // No specific character patterns
+            }
+            
+            return (double)matchingChars / totalChars;
+        }
+
+        private double GetWordScore(string lowerText, string language)
+        {
+            string[] commonWords = GetCommonWordsForLanguage(language);
+            if (commonWords.Length == 0) return 0.0;
+            
+            var words = lowerText.Split(new[] { ' ', '\t', '\n', '\r', '.', ',', ';', ':', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0) return 0.0;
+            
+            int matches = words.Count(word => commonWords.Contains(word));
+            return (double)matches / words.Length;
+        }
+
+        private string[] GetCommonWordsForLanguage(string language)
+        {
+            switch (language.ToLower())
+            {
+                case "en":
+                    return new[] { "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at" };
+                case "sl":
+                    return new[] { "in", "da", "se", "je", "na", "za", "z", "v", "ne", "to", "so", "po", "od", "ali", "če", "ki", "ter", "ima", "do", "kot", "bo", "bi", "vse", "lahko", "samo", "še", "bilo", "tudi", "ker", "pri" };
+                case "de":
+                    return new[] { "der", "die", "und", "in", "den", "von", "zu", "das", "mit", "sich", "des", "auf", "für", "ist", "im", "dem", "nicht", "ein", "eine", "als" };
+                case "fr":
+                    return new[] { "le", "de", "et", "à", "un", "il", "être", "et", "en", "avoir", "que", "pour", "dans", "ce", "son", "une", "sur", "avec", "ne", "se" };
+                case "es":
+                    return new[] { "el", "la", "de", "que", "y", "en", "un", "es", "se", "no", "te", "lo", "le", "da", "su", "por", "son", "con", "para" };
+                case "it":
+                    return new[] { "il", "di", "che", "e", "la", "il", "un", "a", "per", "non", "in", "una", "si", "me", "mi", "ha", "lo", "li", "le", "gli" };
+                case "ru":
+                    return new[] { "и", "в", "не", "на", "я", "быть", "он", "с", "что", "а", "по", "это", "она", "этот", "к", "но", "они", "мы", "как", "из", "у", "который", "то", "за", "свой", "ее", "так", "от", "же", "для", "или", "при", "один", "все", "очень", "если", "где" };
+                // Add more languages as needed
+                default:
+                    return new string[0];
+            }
+        }
+
+
+        private byte[] CombineWavFiles(byte[][] wavFiles)
+        {
+            if (wavFiles == null || wavFiles.Length == 0)
+                return new byte[0];
+                
+            if (wavFiles.Length == 1)
+                return wavFiles[0];
+
+            Logger.Info($"Combining {wavFiles.Length} WAV files for mixed language audio");
+
+            // For proper WAV combination, we need to:
+            // 1. Extract PCM data from each WAV file
+            // 2. Concatenate the PCM data
+            // 3. Create a new WAV header with the combined length
+
+            var combinedPcmData = new List<byte>();
+            
+            foreach (var wavFile in wavFiles)
+            {
+                // Skip WAV header (44 bytes) and extract PCM data
+                if (wavFile.Length > 44)
+                {
+                    var pcmData = new byte[wavFile.Length - 44];
+                    Array.Copy(wavFile, 44, pcmData, 0, pcmData.Length);
+                    combinedPcmData.AddRange(pcmData);
+                    Logger.Info($"Extracted {pcmData.Length} bytes of PCM data from WAV segment");
+                }
+            }
+
+            Logger.Info($"Combined total PCM data: {combinedPcmData.Count} bytes");
+
+            // Create new WAV file with combined PCM data
+            return ConvertPcmToWav(combinedPcmData.ToArray());
+        }
+
+        private byte[] ConvertPcmToWav(byte[] pcmData)
+        {
+            // WAV header for 22050 Hz, 16-bit, mono PCM
+            const int sampleRate = 22050;
+            const short bitsPerSample = 16;
+            const short channels = 1;
+            const int byteRate = sampleRate * channels * bitsPerSample / 8;
+            const short blockAlign = (short)(channels * bitsPerSample / 8);
+
+            using var memoryStream = new MemoryStream();
+            using var writer = new BinaryWriter(memoryStream);
+
+            // RIFF header
+            writer.Write("RIFF".ToCharArray());
+            writer.Write((uint)(36 + pcmData.Length)); // File size - 8
+            writer.Write("WAVE".ToCharArray());
+
+            // Format chunk
+            writer.Write("fmt ".ToCharArray());
+            writer.Write((uint)16); // Chunk size
+            writer.Write((short)1); // Audio format (PCM)
+            writer.Write(channels);
+            writer.Write(sampleRate);
+            writer.Write(byteRate);
+            writer.Write(blockAlign);
+            writer.Write(bitsPerSample);
+
+            // Data chunk
+            writer.Write("data".ToCharArray());
+            writer.Write((uint)pcmData.Length);
+            writer.Write(pcmData);
+
+            Logger.Info($"Created combined WAV file: {memoryStream.Length} bytes total");
+
+            return memoryStream.ToArray();
+        }
+
         private void OnExit(object? sender, EventArgs e)
         {
             trayIcon.Visible = false;
@@ -1109,5 +1451,11 @@ namespace PiperTray
             audioPlayer?.Dispose();
             Application.Exit();
         }
+    }
+
+    public class LanguageSegment
+    {
+        public string Text { get; set; } = "";
+        public string DetectedLanguage { get; set; } = "";
     }
 }
