@@ -190,7 +190,8 @@ namespace PiperTray
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(piperExecutablePath)
+                WorkingDirectory = Path.GetDirectoryName(piperExecutablePath),
+                StandardInputEncoding = System.Text.Encoding.UTF8
             };
             
             // Set environment variable for eSpeak-ng data path
@@ -216,8 +217,10 @@ namespace PiperTray
                 process.Start();
                 process.BeginErrorReadLine();
                 
-                // Send text to stdin
+                // Send text to stdin with proper UTF-8 encoding
+                Logger.Info($"Sending text to Piper: '{text.Substring(0, Math.Min(50, text.Length))}...' (length: {text.Length})");
                 await process.StandardInput.WriteAsync(text);
+                await process.StandardInput.FlushAsync();
                 process.StandardInput.Close();
                 
                 // Read all output
