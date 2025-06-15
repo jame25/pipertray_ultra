@@ -1253,6 +1253,17 @@ namespace PiperTray
                 return bestMatch.Key;
             }
             
+            // If no language scored well, check if English is configured and text is Latin script
+            if (enabledPairs.Any(p => p.Language == "en"))
+            {
+                bool isLatinScript = text.All(c => c <= 127 || char.IsWhiteSpace(c) || char.IsPunctuation(c));
+                if (isLatinScript)
+                {
+                    Logger.Info("No specific language detected, but text is Latin script and English is configured - using English");
+                    return "en";
+                }
+            }
+            
             Logger.Info("No specific language detected, using default voice");
             return ""; // No specific language detected
         }
@@ -1267,6 +1278,18 @@ namespace PiperTray
             
             // Word-based scoring
             double wordScore = GetWordScore(lowerText, language);
+            
+            // English fallback: if text appears to be Latin script and no other language scores well
+            if (language == "en")
+            {
+                // Check if text is primarily Latin characters (likely English if no special chars)
+                bool isLatinScript = text.All(c => c <= 127 || char.IsWhiteSpace(c) || char.IsPunctuation(c));
+                if (isLatinScript && charScore == 0.0)
+                {
+                    // Give English a baseline score for Latin-only text
+                    charScore = 0.1;
+                }
+            }
             
             // Combine scores with weights
             score = (charScore * 0.4) + (wordScore * 0.6);
@@ -1335,7 +1358,7 @@ namespace PiperTray
             switch (language.ToLower())
             {
                 case "en":
-                    return new[] { "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at" };
+                    return new[] { "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they", "we", "say", "her", "she", "or", "an", "will", "my", "one", "all", "would", "there", "their", "what", "so", "up", "out", "if", "about", "who", "get", "which", "go", "me", "when", "make", "can", "like", "time", "no", "just", "him", "know", "take", "people", "into", "year", "your", "good", "some", "could", "them", "see", "other", "than", "then", "now", "look", "only", "come", "its", "over", "think", "also", "back", "after", "use", "two", "how", "our", "work", "first", "well", "way", "even", "new", "want", "because", "any", "these", "give", "day", "most", "us", "is", "was", "are", "been", "has", "had", "were", "said", "each", "which", "she", "do", "how", "their", "if", "will", "up", "other", "about", "out", "many", "then", "them", "these", "so", "some", "her", "would", "make", "like", "into", "him", "time", "has", "two", "more", "go", "no", "way", "could", "my", "than", "first", "water", "been", "call", "who", "its", "now", "find", "long", "down", "day", "did", "get", "come", "made", "may", "part" };
                 case "sl":
                     return new[] { "in", "da", "se", "je", "na", "za", "z", "v", "ne", "to", "so", "po", "od", "ali", "če", "ki", "ter", "ima", "do", "kot", "bo", "bi", "vse", "lahko", "samo", "še", "bilo", "tudi", "ker", "pri" };
                 case "de":
