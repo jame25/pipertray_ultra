@@ -30,6 +30,7 @@ Ultra-fast Text-to-Speech tray application using [Piper TTS](https://github.com/
 - **Optimized speech speed** - 10 speed levels with proper length_scale mapping (1.5 to 0.5)
 - **Voice selection** - Choose between voices
 - **Voice presets** - 4 customizable presets with speed 5 default for balanced performance
+- **Language switching** - Automatic language detection and voice switching for multilingual content
 - **Professional audio navigation**:
   - Skip forward/back with configurable intervals (5-60 seconds, default 10s)
   - Precise seeking using NAudio's native capabilities
@@ -57,6 +58,16 @@ Ultra-fast Text-to-Speech tray application using [Piper TTS](https://github.com/
 - **Silent operation** - No intrusive balloon notifications, all events logged to system.log
 - **Custom icon support** - Uses icon.ico file for both executable and tray icon
 
+### 🌍 **Intelligent Language Switching**
+- **Automatic language detection** - Smart recognition of 35+ languages including Arabic, Chinese, Russian, and European languages
+- **Seamless voice switching** - Configure specific voice models for each language with individual speed settings
+- **Mixed-language support** - Automatically switches voices within the same text (e.g., English-French articles)
+- **Advanced text segmentation** - Intelligent sentence and paragraph-level language detection
+- **Scoring algorithm** - Character-based and word-frequency analysis for accurate language identification
+- **Proper audio combination** - Seamlessly combines audio from different voice models into single playback
+- **Supported languages**: ar, ca, cs, cy, da, de, el, en, es, fa, fi, fr, hu, is, it, ka, kk, lb, lv, ne, nl, no, pl, pt, ro, ru, sk, sl, sr, sv, sw, tr, uk, vi, zh
+- **UTF-8 encoding support** - Perfect handling of Cyrillic, Arabic, Chinese, and other non-Latin scripts
+
 ### 📝 **Pronunciation Dictionaries**
 - **Ignored Words** - Skip specific words during speech (e.g., filler words like "um", "uh")
 - **Text Replacements** - Substitute words/phrases for better pronunciation (e.g., "LHC" → "Large Hadron Collider")
@@ -77,6 +88,11 @@ Ultra-fast Text-to-Speech tray application using [Piper TTS](https://github.com/
     - 4 voice presets with individual enable/disable controls
     - Speed 5 default for optimal balance of quality and speed
     - Model, speaker, and speed configuration per preset
+- **Language Switching Tab**:
+    - 6 configurable language/voice pairs for automatic language detection
+    - 35+ supported languages (Arabic, Chinese, Russian, European languages, etc.)
+    - Individual voice model and speed settings per language
+    - Seamless multilingual text processing with automatic voice switching
   - **Dictionaries Tab**:
     - Ignored Words management with add/remove functionality
     - Text Replacements with "From → To" format display
@@ -143,6 +159,7 @@ The application automatically locates required files and supports comprehensive 
 ### Settings Configuration
 - **Appearance**: Menu item visibility (7 customizable options), animated tray icon
 - **Audio**: Speed (1-10 with optimized length_scale), voice selection, auto-read clipboard, skip intervals
+- **Language Switching**: 6 configurable language/voice pairs with individual speed settings for 35+ languages
 - **Dictionaries**: Ignored words, text replacements with intuitive management interface
 - **Performance**: Phoneme cache size (default 10,000), intelligent chunking
 - **Hotkeys**: Global shortcuts for 6 key actions with configurable skip intervals
@@ -159,7 +176,7 @@ The application automatically locates required files and supports comprehensive 
 3. **Visual feedback** - Animated tray icon provides smooth visual indication during speech
 4. **Control playback** via the rich tray icon context menu:
    - Adjust speed (1-10) with optimized length_scale mapping
-   - Switch voices for variety
+   - Switch voices (Jane Medium/Amy Low) for variety
    - Use voice presets for quick configuration changes
    - Pause/Resume speech at exact position for interruption control
    - Skip forward/back (configurable 5-60 second intervals) for navigation
@@ -172,11 +189,15 @@ The application automatically locates required files and supports comprehensive 
    - Ctrl+Shift+V (Voice switching)
    - Ctrl+Shift+→ (Skip Forward)
    - Ctrl+Shift+← (Skip Back)
-6. **Customize pronunciation** via Settings → Dictionaries:
+6. **Configure language switching** via Settings → Language Switching:
+   - Enable up to 6 language/voice pairs for automatic detection
+   - Set specific voice models and speeds for each language
+   - Perfect for multilingual content (news articles, academic papers, etc.)
+7. **Customize pronunciation** via Settings → Dictionaries:
    - Add ignored words to skip filler words or unwanted terms
    - Create text replacements for better pronunciation (acronyms, technical terms)
-7. **Customize interface** via Settings → Appearance → Show/Hide Menu Items
-8. **Monitor performance** in `system.log` for detailed operation info and cache statistics
+8. **Customize interface** via Settings → Appearance → Show/Hide Menu Items
+9. **Monitor performance** in `system.log` for detailed operation info and cache statistics
 
 ## Performance
 
